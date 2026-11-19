@@ -1,15 +1,22 @@
+import { useTaskContext } from '../hooks/useTaskContext';
 import type { Task } from '../types/task';
 import './TaskItem.scss';
 
 interface TaskItemProps {
     task: Task;
-    onToggleTask: (id: number) => void;
-    onDeleteTask: (id: number) => void;
 }
 
-export function TaskItem({ task, onToggleTask, onDeleteTask }: TaskItemProps) {
+export function TaskItem({ task }: TaskItemProps) {
+    const { toggleTask, requestDelete, undoDelete, startEditing } = useTaskContext();
+
+    const isPending = Boolean(task.isPendingDelete);
+
     return (
-        <article className={`task-item ${task.completed ? 'task-item--completed' : ''}`}>
+        <article
+            className={`task-item ${task.completed ? 'task-item--completed' : ''} ${
+                isPending ? 'task-item--pending-delete' : ''
+            }`}
+        >
             <div className="task-item__content">
                 <div className="task-item__header">
                     <h3
@@ -27,6 +34,12 @@ export function TaskItem({ task, onToggleTask, onDeleteTask }: TaskItemProps) {
                     >
             {task.priority}
           </span>
+
+                    {isPending && (
+                        <span className="task-item__badge task-item__pending-badge">
+              Буде видалено...
+            </span>
+                    )}
                 </div>
 
                 <p className="task-item__description">{task.description}</p>
@@ -41,23 +54,43 @@ export function TaskItem({ task, onToggleTask, onDeleteTask }: TaskItemProps) {
             </div>
 
             <div className="task-item__actions">
-                <button
-                    type="button"
-                    className={`task-item__btn ${
-                        task.completed ? 'task-item__btn--undo' : 'task-item__btn--toggle'
-                    }`}
-                    onClick={() => onToggleTask(task.id)}
-                >
-                    {task.completed ? 'Повернути в роботу' : 'Виконано'}
-                </button>
+                {isPending ? (
+                    <button
+                        type="button"
+                        className="task-item__btn task-item__btn--undo"
+                        onClick={() => undoDelete(task.id)}
+                    >
+                        Скасувати видалення
+                    </button>
+                ) : (
+                    <>
+                        <button
+                            type="button"
+                            className="task-item__btn task-item__btn--edit"
+                            onClick={() => startEditing(task)}
+                        >
+                            Редагувати
+                        </button>
 
-                <button
-                    type="button"
-                    className="task-item__btn task-item__btn--delete"
-                    onClick={() => onDeleteTask(task.id)}
-                >
-                    Видалити
-                </button>
+                        <button
+                            type="button"
+                            className={`task-item__btn ${
+                                task.completed ? 'task-item__btn--undo' : 'task-item__btn--toggle'
+                            }`}
+                            onClick={() => toggleTask(task.id)}
+                        >
+                            {task.completed ? 'Повернути в роботу' : 'Виконано'}
+                        </button>
+
+                        <button
+                            type="button"
+                            className="task-item__btn task-item__btn--delete"
+                            onClick={() => requestDelete(task.id)}
+                        >
+                            Видалити
+                        </button>
+                    </>
+                )}
             </div>
         </article>
     );
