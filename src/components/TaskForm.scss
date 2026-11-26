@@ -115,4 +115,14 @@
       background-color: #1d4ed8;
     }
   }
+  &__success {
+    margin: 0 0 14px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background-color: #dcfce7;
+    border: 1px solid #86efac;
+    color: #166534;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
 }

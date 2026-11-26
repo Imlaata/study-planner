@@ -155,4 +155,18 @@
       }
     }
   }
+  &--selected {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+  }
+
+  &__btn--details {
+    background-color: #f1f5f9;
+    color: #0f172a;
+    border: 1px solid #cbd5e1;
+
+    &:hover:not(:disabled) {
+      background-color: #e2e8f0;
+    }
+  }
 }

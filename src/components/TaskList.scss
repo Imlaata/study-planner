@@ -1,26 +1,47 @@
 .task-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 
-  &__empty {
-    background-color: #ffffff;
-    border: 2px dashed #cbd5e1;
-    border-radius: 12px;
-    padding: 36px 20px;
+  &__empty,
+  &__state {
     text-align: center;
-    color: #64748b;
+    padding: 36px 20px;
+    background-color: #ffffff;
+    border: 1px dashed #cbd5e1;
+    border-radius: 12px;
+    color: #475569;
   }
 
-  &__empty-title {
-    margin: 0 0 6px;
+  &__state--error {
+    border-color: #fca5a5;
+    background-color: #fef2f2;
+    color: #991b1b;
+  }
+
+  &__empty-title,
+  &__state-title {
+    margin: 0 0 8px;
     font-size: 1.1rem;
     font-weight: 600;
-    color: #334155;
   }
 
-  &__empty-text {
-    margin: 0;
+  &__state-text {
+    margin: 0 0 14px;
     font-size: 0.92rem;
+  }
+
+  &__retry-btn {
+    padding: 9px 18px;
+    border: none;
+    border-radius: 8px;
+    background-color: #dc2626;
+    color: #ffffff;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      background-color: #b91c1c;
+    }
   }
 }

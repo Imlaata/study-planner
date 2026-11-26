@@ -3,8 +3,10 @@ import { useTaskContext } from './hooks/useTaskContext';
 import { Header } from './components/Header';
 import { TaskForm } from './components/TaskForm';
 import { TaskStats } from './components/TaskStats';
+import { TaskDetails } from './components/TaskDetails';
 import { TaskFilters } from './components/TaskFilters';
 import { TaskList } from './components/TaskList';
+import { Pagination } from './components/Pagination';
 import { Toast } from './components/Toast';
 import './App.scss';
 
@@ -17,8 +19,10 @@ function StudyPlannerContent() {
                 <Header />
                 <TaskForm key={editingTask?.id ?? 'create'} />
                 <TaskStats />
+                <TaskDetails />
                 <TaskFilters />
                 <TaskList />
+                <Pagination />
             </main>
             <Toast />
         </>

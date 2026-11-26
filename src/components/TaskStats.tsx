@@ -1,8 +1,9 @@
 import { useTaskContext } from '../hooks/useTaskContext';
 import './TaskStats.scss';
 
+
 export function TaskStats() {
-    const { tasks } = useTaskContext();
+    const { tasks } = useTaskContext(); //компонент сам дістає масив завдань із контексту і рахує статистику
 
     const totalCount = tasks.length;
     const completedCount = tasks.filter((task) => task.completed).length;

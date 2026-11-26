@@ -1,53 +1,49 @@
 import {
-    useReducer,
-    useEffect,
     useState,
+    useEffect,
     useCallback,
     useMemo,
     type ReactNode,
 } from 'react';
-import { initialTasks } from '../data/initialTasks';
-import { taskReducer } from '../reducers/taskReducer';
+import { taskRepository } from '../repositories/taskRepository';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { TaskContext, type TaskContextValue } from './taskContextDef';
-import type { FilterType, Task, ToastData, ToastType } from '../types/task';
+import type {
+    CreateTaskInput,
+    FilterType,
+    Task,
+    ToastData,
+    ToastType,
+    UpdateTaskInput,
+} from '../types/task';
 
-const TASKS_STORAGE_KEY = 'study-planner-tasks-v1';
-const FILTER_STORAGE_KEY = 'study-planner-filter-v1';
-const UNDO_TIMEOUT_MS = 5000;
+const FILTER_STORAGE_KEY = 'study-planner-filter-v2';
+const PAGE_LIMIT = 10;
 
-function loadInitialTasks(): Task[] {
-    try {
-        const raw = window.localStorage.getItem(TASKS_STORAGE_KEY);
-        if (!raw) return initialTasks;
-        const parsed = JSON.parse(raw);
-        if (!Array.isArray(parsed)) return initialTasks;
-
-        return parsed.map((item: Task) => ({
-            ...item,
-            isPendingDelete: false,
-        }));
-    } catch (error) {
-        console.error('Пошкоджені дані в localStorage, завантажено початковий список:', error);
-        return initialTasks;
-    }
+function isAbortError(err: unknown): boolean {
+    return err instanceof DOMException && err.name === 'AbortError';
 }
 
 export function TaskProvider({ children }: { children: ReactNode }) {
-    const [tasks, dispatch] = useReducer(taskReducer, undefined, loadInitialTasks);
+    // Server state (не дублюється в localStorage)
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [total, setTotal] = useState(0);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [reloadTick, setReloadTick] = useState(0);
+    const [isCreating, setIsCreating] = useState(false);
+    const [mutatingId, setMutatingId] = useState<number | null>(null);
+
+    // Client / UI state
+    const [page, setPage] = useState(1);
     const [filter, setFilter] = useLocalStorage<FilterType>(FILTER_STORAGE_KEY, 'all');
+    const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
     const [toast, setToast] = useState<ToastData | null>(null);
 
     const showToast = useCallback(
-        (message: string, type: ToastType = 'info', undoTaskId?: number, duration = 3500) => {
-            setToast({
-                id: Date.now(),
-                message,
-                type,
-                undoTaskId,
-                duration,
-            });
+        (message: string, type: ToastType = 'info', duration = 3500) => {
+            setToast({ id: Date.now(), message, type, duration });
         },
         []
     );
@@ -56,159 +52,207 @@ export function TaskProvider({ children }: { children: ReactNode }) {
         setToast(null);
     }, []);
 
-    // 1. Синхронізація tasks з localStorage
+    // Автоприховування Toast
     useEffect(() => {
-        try {
-            const cleanTasks = tasks.map((task) => {
-                const copy = { ...task };
-                delete copy.isPendingDelete;
-                return copy;
-            });
-            window.localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(cleanTasks));
-        } catch (error) {
-            console.error('Помилка збереження у localStorage:', error);
-        }
-    }, [tasks]);
+        if (!toast) return;
+        const timerId = window.setTimeout(() => setToast(null), toast.duration ?? 3500);
+        return () => window.clearTimeout(timerId);
+    }, [toast]);
 
-    // 2. Синхронізація заголовка вкладки браузера з кількістю активних завдань
+    // Завантаження списку з пагінацією + скасування попереднього запиту через AbortController
     useEffect(() => {
-        const activeCount = tasks.filter((t) => !t.completed && !t.isPendingDelete).length;
+        const controller = new AbortController();
+        const skip = (page - 1) * PAGE_LIMIT;
+
+        async function loadTasks() {
+            setIsLoading(true);
+            setError(null);
+
+            try {
+                const result = await taskRepository.getAll(PAGE_LIMIT, skip, controller.signal);
+                setTasks(result.items);
+                setTotal(result.total);
+            } catch (err) {
+                // Скасований запит не показуємо як помилку завантаження
+                if (isAbortError(err)) return;
+                setError(
+                    err instanceof Error ? err.message : 'Помилка завантаження списку завдань'
+                );
+            } finally {
+                if (!controller.signal.aborted) {
+                    setIsLoading(false);
+                }
+            }
+        }
+
+        void loadTasks();
+
+        return () => {
+            controller.abort();
+        };
+    }, [page, reloadTick]);
+
+    // Синхронізація заголовка вкладки браузера з активними завданнями на сторінці
+    useEffect(() => {
+        const activeCount = tasks.filter((t) => !t.completed).length;
         document.title = `Study Planner — ${activeCount} active ${
             activeCount === 1 ? 'task' : 'tasks'
         }`;
     }, [tasks]);
 
-    // 3. Таймер Undoable Delete (5 секунд)
-    const pendingTask = tasks.find((t) => t.isPendingDelete);
-    const pendingTaskId = pendingTask?.id;
+    const retryFetch = useCallback(() => {
+        setReloadTick((prev) => prev + 1);
+    }, []);
 
-    useEffect(() => {
-        if (pendingTaskId === undefined) return;
-
-        const timerId = window.setTimeout(() => {
-            dispatch({ type: 'confirmDelete', payload: { id: pendingTaskId } });
-            showToast('Завдання остаточно видалено', 'info');
-        }, UNDO_TIMEOUT_MS);
-
-        return () => {
-            window.clearTimeout(timerId);
-        };
-    }, [pendingTaskId, showToast]);
-
-    // 4. Автоматичне приховування звичайних Toast-повідомлень
-    useEffect(() => {
-        if (!toast || toast.undoTaskId !== undefined) return;
-
-        const timerId = window.setTimeout(() => {
-            setToast(null);
-        }, toast.duration ?? 3500);
-
-        return () => {
-            window.clearTimeout(timerId);
-        };
-    }, [toast]);
-
+    // POST: створення завдання + оновлення client state
     const addTask = useCallback(
-        (data: Omit<Task, 'id' | 'completed' | 'isPendingDelete'>) => {
-            dispatch({ type: 'add', payload: data });
-            showToast('Завдання успішно створено', 'success');
+        async (input: CreateTaskInput): Promise<boolean> => {
+            setIsCreating(true);
+            try {
+                const created = await taskRepository.create(input);
+                setTasks((prev) => [created, ...prev]);
+                setTotal((prev) => prev + 1);
+                showToast('Завдання успішно створено (POST /todos/add)', 'success');
+                return true;
+            } catch (err) {
+                showToast(
+                    err instanceof Error ? err.message : 'Не вдалося створити завдання',
+                    'error'
+                );
+                return false;
+            } finally {
+                setIsCreating(false);
+            }
         },
         [showToast]
     );
 
+    // PATCH: редагування завдання
     const updateTask = useCallback(
-        (id: number, data: Omit<Task, 'id' | 'completed' | 'isPendingDelete'>) => {
-            dispatch({ type: 'update', payload: { id, ...data } });
-            setEditingTask(null);
-            showToast('Зміни збережено', 'success');
-        },
-        [showToast]
-    );
-
-    const toggleTask = useCallback((id: number) => {
-        dispatch({ type: 'toggle', payload: { id } });
-    }, []);
-
-    const requestDelete = useCallback(
-        (id: number) => {
-            if (pendingTaskId !== undefined && pendingTaskId !== id) {
-                dispatch({ type: 'confirmDelete', payload: { id: pendingTaskId } });
-            }
-            if (editingTask?.id === id) {
+        async (id: number, input: UpdateTaskInput): Promise<boolean> => {
+            setMutatingId(id);
+            try {
+                const updatedFields = await taskRepository.update(id, input);
+                setTasks((prev) =>
+                    prev.map((task) => (task.id === id ? { ...task, ...updatedFields } : task))
+                );
                 setEditingTask(null);
+                showToast('Завдання оновлено (PATCH /todos/:id)', 'success');
+                return true;
+            } catch (err) {
+                showToast(
+                    err instanceof Error ? err.message : 'Помилка оновлення завдання',
+                    'error'
+                );
+                return false;
+            } finally {
+                setMutatingId(null);
             }
-            dispatch({ type: 'requestDelete', payload: { id } });
-            showToast('Завдання буде видалено через 5 с', 'warning', id, UNDO_TIMEOUT_MS);
-        },
-        [pendingTaskId, editingTask, showToast]
-    );
-
-    const undoDelete = useCallback(
-        (id: number) => {
-            dispatch({ type: 'undoDelete', payload: { id } });
-            showToast('Видалення скасовано', 'info');
         },
         [showToast]
     );
 
-    const clearCompleted = useCallback(() => {
-        const completedCount = tasks.filter((t) => t.completed).length;
-        if (completedCount === 0) {
-            showToast('Немає виконаних завдань для очищення', 'error');
-            return;
-        }
-        dispatch({ type: 'clearCompleted' });
-        showToast(`Очищено виконаних завдань: ${completedCount}`, 'info');
-    }, [tasks, showToast]);
+    // PATCH: перемикання статусу completed
+    const toggleTask = useCallback(
+        async (task: Task): Promise<void> => {
+            setMutatingId(task.id);
+            try {
+                const updatedFields = await taskRepository.update(task.id, {
+                    completed: !task.completed,
+                });
+                setTasks((prev) =>
+                    prev.map((item) =>
+                        item.id === task.id ? { ...item, ...updatedFields } : item
+                    )
+                );
+                showToast(
+                    !task.completed ? 'Позначено як виконане' : 'Повернуто в роботу',
+                    'info'
+                );
+            } catch (err) {
+                showToast(
+                    err instanceof Error ? err.message : 'Не вдалося змінити статус',
+                    'error'
+                );
+            } finally {
+                setMutatingId(null);
+            }
+        },
+        [showToast]
+    );
 
-    const resetTasks = useCallback(() => {
-        dispatch({ type: 'reset', payload: initialTasks });
-        setEditingTask(null);
-        showToast('Дані скинуто до початкових', 'info');
-    }, [showToast]);
+    // DELETE: видалення завдання
+    const deleteTask = useCallback(
+        async (id: number): Promise<void> => {
+            setMutatingId(id);
+            try {
+                await taskRepository.delete(id);
+                setTasks((prev) => prev.filter((item) => item.id !== id));
+                setTotal((prev) => Math.max(0, prev - 1));
+                if (selectedTaskId === id) setSelectedTaskId(null);
+                if (editingTask?.id === id) setEditingTask(null);
+                showToast('Завдання видалено (DELETE /todos/:id)', 'info');
+            } catch (err) {
+                showToast(
+                    err instanceof Error ? err.message : 'Не вдалося видалити завдання',
+                    'error'
+                );
+            } finally {
+                setMutatingId(null);
+            }
+        },
+        [selectedTaskId, editingTask, showToast]
+    );
 
-    const startEditing = useCallback((task: Task) => {
-        setEditingTask(task);
-    }, []);
-
-    const cancelEditing = useCallback(() => {
-        setEditingTask(null);
-    }, []);
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_LIMIT));
 
     const value = useMemo<TaskContextValue>(
         () => ({
             tasks,
+            total,
+            isLoading,
+            error,
+            mutatingId,
+            isCreating,
+            page,
+            limit: PAGE_LIMIT,
+            totalPages,
+            setPage,
             filter,
             setFilter,
+            selectedTaskId,
+            selectTask: setSelectedTaskId,
             editingTask,
-            startEditing,
-            cancelEditing,
+            startEditing: setEditingTask,
+            cancelEditing: () => setEditingTask(null),
+            toast,
+            dismissToast,
+            retryFetch,
             addTask,
             updateTask,
             toggleTask,
-            requestDelete,
-            undoDelete,
-            clearCompleted,
-            resetTasks,
-            toast,
-            dismissToast,
+            deleteTask,
         }),
         [
             tasks,
+            total,
+            isLoading,
+            error,
+            mutatingId,
+            isCreating,
+            page,
+            totalPages,
             filter,
             setFilter,
+            selectedTaskId,
             editingTask,
-            startEditing,
-            cancelEditing,
+            toast,
+            dismissToast,
+            retryFetch,
             addTask,
             updateTask,
             toggleTask,
-            requestDelete,
-            undoDelete,
-            clearCompleted,
-            resetTasks,
-            toast,
-            dismissToast,
+            deleteTask,
         ]
     );
 

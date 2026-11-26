@@ -4,7 +4,8 @@ import type { TaskPriority } from '../types/task';
 import './TaskForm.scss';
 
 export function TaskForm() {
-    const { addTask, updateTask, editingTask, cancelEditing } = useTaskContext();
+    const { addTask, updateTask, editingTask, cancelEditing, isCreating, mutatingId } =
+        useTaskContext();
 
     const [title, setTitle] = useState(editingTask?.title ?? '');
     const [description, setDescription] = useState(editingTask?.description ?? '');
@@ -13,9 +14,14 @@ export function TaskForm() {
         editingTask?.priority ?? 'medium'
     );
     const [error, setError] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
 
-    const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    const isSubmitting =
+        isCreating || (editingTask !== null && mutatingId === editingTask.id);
+
+    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        setSuccessMessage('');
 
         if (!title.trim()) {
             setError('Назва завдання є обов’язковою');
@@ -25,18 +31,21 @@ export function TaskForm() {
         const payload = {
             title: title.trim(),
             description: description.trim() || 'Без додаткового опису',
-            category: category.trim() || 'Загальне',
+            category: category.trim() || 'General',
             priority,
         };
 
         if (editingTask) {
-            updateTask(editingTask.id, payload);
+            await updateTask(editingTask.id, payload);
         } else {
-            addTask(payload);
-            setTitle('');
-            setDescription('');
-            setCategory('React');
-            setPriority('medium');
+            const ok = await addTask(payload);
+            if (ok) {
+                setTitle('');
+                setDescription('');
+                setCategory('React');
+                setPriority('medium');
+                setSuccessMessage('Завдання успішно додано до списку!');
+            }
         }
 
         setError('');
@@ -45,12 +54,18 @@ export function TaskForm() {
     return (
         <form
             className={`task-form ${editingTask ? 'task-form--editing' : ''}`}
-            onSubmit={handleSubmit}
+            onSubmit={(e) => void handleSubmit(e)}
             noValidate
         >
             <h2 className="task-form__heading">
                 {editingTask ? `Редагування: ${editingTask.title}` : 'Нове навчальне завдання'}
             </h2>
+
+            {successMessage && (
+                <p className="task-form__success" role="status">
+                    {successMessage}
+                </p>
+            )}
 
             <div className="task-form__grid">
                 <div className="task-form__field task-form__field--full">
@@ -61,12 +76,14 @@ export function TaskForm() {
                         id="task-title"
                         type="text"
                         className={`task-form__input ${error ? 'task-form__input--invalid' : ''}`}
-                        placeholder="Наприклад: Вивчити useReducer та Context"
+                        placeholder="Наприклад: Розібратися з Repository Pattern"
                         value={title}
                         onChange={(e) => {
                             setTitle(e.target.value);
                             if (error) setError('');
+                            if (successMessage) setSuccessMessage('');
                         }}
+                        disabled={isSubmitting}
                     />
                     {error && <span className="task-form__error">{error}</span>}
                 </div>
@@ -79,9 +96,9 @@ export function TaskForm() {
                         id="task-category"
                         type="text"
                         className="task-form__input"
-                        placeholder="React, TypeScript, Git..."
                         value={category}
                         onChange={(e) => setCategory(e.target.value)}
+                        disabled={isSubmitting}
                     />
                 </div>
 
@@ -94,6 +111,7 @@ export function TaskForm() {
                         className="task-form__select"
                         value={priority}
                         onChange={(e) => setPriority(e.target.value as TaskPriority)}
+                        disabled={isSubmitting}
                     >
                         <option value="low">Low (Низький)</option>
                         <option value="medium">Medium (Середній)</option>
@@ -108,9 +126,9 @@ export function TaskForm() {
                     <textarea
                         id="task-description"
                         className="task-form__textarea"
-                        placeholder="Короткий опис завдання..."
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
+                        disabled={isSubmitting}
                     />
                 </div>
             </div>
@@ -121,12 +139,17 @@ export function TaskForm() {
                         type="button"
                         className="task-form__cancel"
                         onClick={cancelEditing}
+                        disabled={isSubmitting}
                     >
                         Скасувати
                     </button>
                 )}
-                <button type="submit" className="task-form__submit">
-                    {editingTask ? 'Зберегти зміни' : 'Додати'}
+                <button type="submit" className="task-form__submit" disabled={isSubmitting}>
+                    {isSubmitting
+                        ? 'Збереження...'
+                        : editingTask
+                            ? 'Зберегти зміни'
+                            : 'Додати'}
                 </button>
             </div>
         </form>

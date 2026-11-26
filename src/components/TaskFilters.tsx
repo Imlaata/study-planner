@@ -9,8 +9,7 @@ const FILTER_OPTIONS: { value: FilterType; label: string }[] = [
 ];
 
 export function TaskFilters() {
-    const { filter, setFilter, clearCompleted, resetTasks, tasks } = useTaskContext();
-    const hasCompleted = tasks.some((t) => t.completed);
+    const { filter, setFilter, retryFetch, isLoading } = useTaskContext();
 
     return (
         <div className="task-filters">
@@ -32,18 +31,11 @@ export function TaskFilters() {
             <div className="task-filters__bulk">
                 <button
                     type="button"
-                    className="task-filters__action task-filters__action--clear"
-                    onClick={clearCompleted}
-                    disabled={!hasCompleted}
-                >
-                    Очистити виконані
-                </button>
-                <button
-                    type="button"
                     className="task-filters__action task-filters__action--reset"
-                    onClick={resetTasks}
+                    onClick={retryFetch}
+                    disabled={isLoading}
                 >
-                    Скинути дані
+                    {isLoading ? 'Оновлення...' : 'Оновити з API'}
                 </button>
             </div>
         </div>

@@ -1,7 +1,7 @@
 import type { Task, TaskPriority } from '../types/task';
 
 export type TaskAction =
-    | { type: 'add'; payload: Omit<Task, 'id' | 'completed' | 'isPendingDelete'> }
+    | { type: 'add'; payload: Omit<Task, 'id' | 'completed'> }
     | { type: 'toggle'; payload: { id: number } }
     | {
     type: 'update';
@@ -13,10 +13,7 @@ export type TaskAction =
         category: string;
     };
 }
-    | { type: 'requestDelete'; payload: { id: number } }
-    | { type: 'confirmDelete'; payload: { id: number } }
-    | { type: 'undoDelete'; payload: { id: number } }
-    | { type: 'clearCompleted' }
+    | { type: 'delete'; payload: { id: number } }
     | { type: 'reset'; payload: Task[] };
 
 export function taskReducer(state: Task[], action: TaskAction): Task[] {
@@ -25,7 +22,6 @@ export function taskReducer(state: Task[], action: TaskAction): Task[] {
             const newTask: Task = {
                 id: Date.now(),
                 completed: false,
-                isPendingDelete: false,
                 ...action.payload,
             };
             return [newTask, ...state];
@@ -49,23 +45,8 @@ export function taskReducer(state: Task[], action: TaskAction): Task[] {
                     : task
             );
 
-        case 'requestDelete':
-            return state.map((task) =>
-                task.id === action.payload.id
-                    ? { ...task, isPendingDelete: true }
-                    : { ...task, isPendingDelete: false }
-            );
-
-        case 'confirmDelete':
+        case 'delete':
             return state.filter((task) => task.id !== action.payload.id);
-
-        case 'undoDelete':
-            return state.map((task) =>
-                task.id === action.payload.id ? { ...task, isPendingDelete: false } : task
-            );
-
-        case 'clearCompleted':
-            return state.filter((task) => !task.completed);
 
         case 'reset':
             return action.payload;
