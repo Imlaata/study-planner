@@ -8,10 +8,10 @@ import type {
     UpdateTaskInput,
 } from '../types/task';
 
-// Mapping з API DTO (ApiTodo) у domain-модель застосунку (Task)
+// Mapping DTO -> Domain Model із додаванням client-owned metadata (createdBy, createdAt)
 function toTask(
     dto: ApiTodo,
-    meta?: Partial<Pick<Task, 'description' | 'priority' | 'category'>>
+    meta?: Partial<Pick<Task, 'description' | 'priority' | 'category' | 'createdBy' | 'createdAt'>>
 ): Task {
     return {
         id: dto.id,
@@ -20,15 +20,17 @@ function toTask(
         description: meta?.description ?? 'Навчальне завдання з REST API (DummyJSON)',
         priority: meta?.priority ?? 'medium',
         category: meta?.category ?? 'General',
+        // Client-owned metadata (DummyJSON не зберігає автора та дату створення)
+        createdBy: meta?.createdBy ?? `user-${dto.userId}`,
+        createdAt: meta?.createdAt ?? '2026-11-26',
     };
 }
 
 export const taskRepository = {
-    // GET /todos?limit=10&skip=0 (з підтримкою AbortSignal)
     async getAll(limit = 10, skip = 0, signal?: AbortSignal): Promise<PaginatedTasks> {
         const data = await httpClient.get<TodosResponse>(
             `/todos?limit=${limit}&skip=${skip}`,
-            signal
+            { signal }
         );
 
         return {
@@ -39,44 +41,46 @@ export const taskRepository = {
         };
     },
 
-    // GET /todos/:id (з підтримкою AbortSignal)
     async getById(id: number, signal?: AbortSignal): Promise<Task> {
-        const dto = await httpClient.get<ApiTodo>(`/todos/${id}`, signal);
+        const dto = await httpClient.get<ApiTodo>(`/todos/${id}`, { signal });
         return toTask(dto);
     },
 
-    // POST /todos/add
-    async create(input: CreateTaskInput): Promise<Task> {
-        const dto = await httpClient.post<ApiTodo>('/todos/add', {
-            todo: input.title,
-            completed: false,
-            userId: 1,
-        });
+    // Авторизований запит (передає Authorization: Bearer <token>)
+    async create(input: CreateTaskInput, authorUsername: string): Promise<Task> {
+        const dto = await httpClient.post<ApiTodo>(
+            '/todos/add',
+            {
+                todo: input.title,
+                completed: false,
+                userId: 1,
+            },
+            { auth: true }
+        );
 
-        // DummyJSON повертає id: 255 для всіх нових записів — робимо його унікальним у межах клієнта
         return toTask(
             { ...dto, id: Date.now() },
             {
                 description: input.description,
                 priority: input.priority,
                 category: input.category,
+                createdBy: authorUsername,
+                createdAt: new Date().toISOString().split('T')[0],
             }
         );
     },
 
-    // PATCH /todos/:id
+    // Авторизований запит (передає Authorization: Bearer <token>)
     async update(id: number, input: UpdateTaskInput): Promise<Partial<Task>> {
         const payload: Record<string, unknown> = {};
         if (input.title !== undefined) payload.todo = input.title;
         if (input.completed !== undefined) payload.completed = input.completed;
 
-        // Для локально створених задач (id > 254), яких немає в БД DummyJSON,
-        // повертаємо оновлення без виклику 404 на сервері
         if (id > 254) {
             return { id, ...input };
         }
 
-        const dto = await httpClient.patch<ApiTodo>(`/todos/${id}`, payload);
+        const dto = await httpClient.patch<ApiTodo>(`/todos/${id}`, payload, { auth: true });
         return {
             id: dto.id,
             ...(input.title !== undefined ? { title: dto.todo } : {}),
@@ -87,9 +91,11 @@ export const taskRepository = {
         };
     },
 
-    // DELETE /todos/:id
+    // Авторизований запит (передає Authorization: Bearer <token>)
     async delete(id: number): Promise<void> {
         if (id > 254) return;
-        await httpClient.delete<{ id: number; isDeleted: boolean }>(`/todos/${id}`);
+        await httpClient.delete<{ id: number; isDeleted: boolean }>(`/todos/${id}`, {
+            auth: true,
+        });
     },
 };

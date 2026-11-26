@@ -1,0 +1,140 @@
+.task-dialog {
+  width: 100%;
+  max-width: 520px;
+  background-color: #ffffff;
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25);
+
+  &__backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background-color: rgba(15, 23, 42, 0.55);
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 1.2rem;
+    color: #0f172a;
+  }
+
+  &__close {
+    border: none;
+    background: transparent;
+    font-size: 1.1rem;
+    color: #64748b;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+
+    &:hover:not(:disabled) {
+      background-color: #f1f5f9;
+      color: #0f172a;
+    }
+  }
+
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  &__row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__label {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #334155;
+  }
+
+  &__input,
+  &__select,
+  &__textarea {
+    padding: 9px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    color: #0f172a;
+
+    &:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+
+    &--invalid {
+      border-color: #dc2626;
+    }
+  }
+
+  &__error {
+    font-size: 0.82rem;
+    color: #dc2626;
+    font-weight: 500;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  &__btn {
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.92rem;
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    &--cancel {
+      border: 1px solid #cbd5e1;
+      background-color: #ffffff;
+      color: #334155;
+
+      &:hover:not(:disabled) {
+        background-color: #f1f5f9;
+      }
+    }
+
+    &--submit {
+      border: none;
+      background-color: #2563eb;
+      color: #ffffff;
+
+      &:hover:not(:disabled) {
+        background-color: #1d4ed8;
+      }
+    }
+  }
+}

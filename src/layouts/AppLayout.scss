@@ -1,0 +1,105 @@
+.layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #f8fafc;
+
+  &__header {
+    background-color: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  &__header-inner {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  &__brand {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #1e3a8a;
+    text-decoration: none;
+  }
+
+  &__nav {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  &__link {
+    text-decoration: none;
+    color: #475569;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 8px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+
+    &:hover {
+      background-color: #f1f5f9;
+      color: #0f172a;
+    }
+
+    &--active {
+      background-color: #eff6ff;
+      color: #2563eb;
+    }
+  }
+
+  &__auth-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__username {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #0f172a;
+    background-color: #f1f5f9;
+    padding: 4px 10px;
+    border-radius: 999px;
+  }
+
+  &__auth-btn {
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    border: 1px solid #2563eb;
+    background-color: #2563eb;
+    color: #ffffff;
+    cursor: pointer;
+
+    &:hover {
+      background-color: #1d4ed8;
+    }
+
+    &--logout {
+      background-color: #ffffff;
+      color: #dc2626;
+      border-color: #fca5a5;
+
+      &:hover {
+        background-color: #fef2f2;
+      }
+    }
+  }
+
+  &__content {
+    width: 100%;
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 28px 20px 48px;
+    flex: 1;
+  }
+}

@@ -1,5 +1,6 @@
 export type TaskPriority = 'low' | 'medium' | 'high';
-export type FilterType = 'all' | 'completed' | 'uncompleted';
+export type StatusFilter = 'all' | 'completed' | 'uncompleted';
+export type PriorityFilter = 'all' | TaskPriority;
 
 // Domain-модель застосунку
 export interface Task {
@@ -9,9 +10,12 @@ export interface Task {
     completed: boolean;
     priority: TaskPriority;
     category: string;
+    // Client-owned metadata (DummyJSON не підтримує ці поля, тому ними володіє клієнт)
+    createdBy: string;
+    createdAt: string;
 }
 
-// DTO-модель, яку повертає DummyJSON API
+// DTO-модель DummyJSON (/todos)
 export interface ApiTodo {
     id: number;
     todo: string;
@@ -33,8 +37,22 @@ export interface PaginatedTasks {
     limit: number;
 }
 
-export type CreateTaskInput = Omit<Task, 'id' | 'completed'>;
-export type UpdateTaskInput = Partial<Omit<Task, 'id'>>;
+export type CreateTaskInput = Omit<Task, 'id' | 'completed' | 'createdBy' | 'createdAt'>;
+export type UpdateTaskInput = Partial<Omit<Task, 'id' | 'createdBy' | 'createdAt'>>;
+
+export interface AuthUser {
+    id: number;
+    username: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    image?: string;
+}
+
+export interface LoginResponse extends AuthUser {
+    accessToken: string;
+    refreshToken: string;
+}
 
 export type ToastType = 'success' | 'info' | 'warning' | 'error';
 
